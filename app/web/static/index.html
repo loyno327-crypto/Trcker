@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<title>Трекер привычек</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<div id="app" class="app">
+
+  <!-- Экран: Календарь -->
+  <section id="screen-calendar" class="screen">
+    <header class="cal-header">
+      <button class="nav-arrow" id="prevMonth" aria-label="Предыдущий месяц">
+        <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="cal-title" id="monthLabel">&nbsp;</div>
+      <button class="nav-arrow" id="nextMonth" aria-label="Следующий месяц">
+        <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </header>
+
+    <div class="weekdays">
+      <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span class="wknd">Сб</span><span class="wknd">Вс</span>
+    </div>
+
+    <div class="cal-grid" id="calGrid"></div>
+
+    <div class="legend">
+      <span><i class="dot dot-empty"></i>Нет задач</span>
+      <span><i class="dot dot-pending"></i>Есть задачи</span>
+      <span><i class="dot dot-done"></i>Всё выполнено</span>
+      <span><i class="dot dot-overdue"></i>Просрочено</span>
+    </div>
+  </section>
+
+  <!-- Экран: Добавить -->
+  <section id="screen-add" class="screen hidden">
+    <div class="form-page">
+      <h2 class="form-title">Новая задача</h2>
+
+      <div class="field">
+        <label for="addTitle">Название</label>
+        <input id="addTitle" type="text" maxlength="255" placeholder="Например, Сходить в магазин" autocomplete="off" />
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="addDate">Дата</label>
+          <input id="addDate" type="date" />
+        </div>
+        <div class="field">
+          <label for="addTime">Время</label>
+          <input id="addTime" type="time" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="addRepeat">Повторение</label>
+        <select id="addRepeat">
+          <option value="once">Один раз</option>
+          <option value="daily">Каждый день</option>
+          <option value="weekdays">По будням</option>
+          <option value="weekends">По выходным</option>
+          <option value="weekly">Каждую неделю</option>
+          <option value="monthly">Каждый месяц</option>
+        </select>
+      </div>
+
+      <button id="addSubmit" class="primary-btn">Создать задачу</button>
+    </div>
+  </section>
+
+  <!-- Экран: История -->
+  <section id="screen-history" class="screen hidden">
+    <header class="cal-header">
+      <div class="cal-title">История</div>
+    </header>
+
+    <div class="period-tabs" id="periodTabs">
+      <button class="period-tab active" data-period="today">Сегодня</button>
+      <button class="period-tab" data-period="week">Неделя</button>
+      <button class="period-tab" data-period="month">Месяц</button>
+      <button class="period-tab" data-period="all">Всё время</button>
+    </div>
+
+    <div id="historyBody" class="history-body">
+      <div class="sheet-loading">Загрузка…</div>
+    </div>
+
+    <div class="achievements-block">
+      <div class="history-section-title">🏅 Достижения</div>
+      <div id="achievementsGrid" class="achievements-grid">
+        <div class="sheet-loading">Загрузка…</div>
+      </div>
+    </div>
+  </section>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-screen="calendar">
+      <span class="nav-icon">📅</span><span class="nav-label">Календарь</span>
+    </button>
+    <button class="nav-btn" data-screen="add">
+      <span class="nav-icon">➕</span><span class="nav-label">Добавить</span>
+    </button>
+    <button class="nav-btn" data-screen="history">
+      <span class="nav-icon">📊</span><span class="nav-label">История</span>
+    </button>
+  </nav>
+</div>
+
+<!-- Нижний лист: список задач на выбранную дату -->
+<div id="sheetOverlay" class="sheet-overlay hidden">
+  <div id="taskSheet" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span id="sheetDate" class="sheet-date"></span>
+      <button id="sheetClose" class="sheet-close" aria-label="Закрыть">✕</button>
+    </div>
+    <div id="sheetBody" class="sheet-body">
+      <div class="sheet-loading">Загрузка…</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<!-- Редактирование задачи -->
+<div id="editOverlay" class="sheet-overlay hidden">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-date">Редактировать задачу</span>
+      <button id="editClose" class="sheet-close" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="form-page form-page--in-sheet">
+        <div class="field">
+          <label for="editTitle">Название</label>
+          <input id="editTitle" type="text" maxlength="255" autocomplete="off" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="editDate">Дата</label>
+            <input id="editDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="editTime">Время</label>
+            <input id="editTime" type="time" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="editRepeat">Повторение</label>
+          <select id="editRepeat">
+            <option value="once">Один раз</option>
+            <option value="daily">Каждый день</option>
+            <option value="weekdays">По будням</option>
+            <option value="weekends">По выходным</option>
+            <option value="weekly">Каждую неделю</option>
+            <option value="monthly">Каждый месяц</option>
+          </select>
+        </div>
+        <button id="editSubmit" class="primary-btn">Сохранить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Перенос задачи -->
+<div id="moveOverlay" class="sheet-overlay hidden">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <span class="sheet-date">Перенести задачу</span>
+      <button id="moveClose" class="sheet-close" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="form-page form-page--in-sheet">
+        <div class="field-row">
+          <div class="field">
+            <label for="moveDate">Новая дата</label>
+            <input id="moveDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="moveTime">Новое время</label>
+            <input id="moveTime" type="time" />
+          </div>
+        </div>
+        <button id="moveSubmit" class="primary-btn">Перенести</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Универсальный action sheet: выбор "эта задача / вся серия", подтверждения -->
+<div id="actionSheetOverlay" class="sheet-overlay hidden">
+  <div class="sheet action-sheet">
+    <div class="sheet-handle"></div>
+    <div id="actionSheetTitle" class="action-sheet-title"></div>
+    <div id="actionSheetMessage" class="action-sheet-message"></div>
+    <div id="actionSheetButtons" class="action-sheet-buttons"></div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
